@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: pool-orchestrator
+  threads:
+    virtual:
+      enabled: true # Java 21 Virtual Threads Aktif (Çok Kritik)
+  jpa:
+    hibernate:
+      ddl-auto: update # Tablo yoksa oluşturur, varsa günceller
+    show-sql: true # Loglarda SQL sorgularını görmek için
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/camunda_db}
+    username: ${DB_USER:camunda}
+    password: ${DB_PASS:camunda_password}
+    driver-class-name: org.postgresql.Driver
+
+camunda:
+  bpm:
+    admin-user:
+      id: admin
+      password: admin
+      first-name: System
+      last-name: Admin
+
+app:
+  services:
+    nvi:
+      url: ${NVI_URL:https://api.nvi.gov.tr/v1/dogrula}
+      timeout-ms: 5000

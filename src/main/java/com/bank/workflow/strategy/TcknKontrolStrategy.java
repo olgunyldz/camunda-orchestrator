@@ -14,6 +14,11 @@ public class TcknKontrolStrategy implements KbsKontrolStrategy {
   }
 
   @Override
+  public int getOrder() {
+    return 1;
+  }
+
+  @Override
   public void kontroluYap(DelegateExecution execution) throws Exception {
     log.info("TCKN Kontrolü yapılıyor...");
     // API çağrısı ve mantık burada...

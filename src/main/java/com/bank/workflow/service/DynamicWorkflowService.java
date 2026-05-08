@@ -73,18 +73,29 @@ public class DynamicWorkflowService {
                     .subProcessDone();
 
             /*
-             * subprocess boundary event
+             * subprocess boundary event — max 3 deneme, sonra hata akışına geçer
              */
             subProcessBuilder
                     .boundaryEvent("Evt_KbsHata")
                     .error("ERR_KBS_RESTART")
 
-                    .serviceTask("restartTask")
+                    .serviceTask("retryCountTask")
                     .camundaExpression(
-                            "${execution.setVariable('restart', true)}"
+                            "${execution.setVariable('kbsRetryCount', kbsRetryCount == null ? 1 : kbsRetryCount + 1)}"
                     )
 
-                    .connectTo("Sub_KbsHavuzu");
+                    .exclusiveGateway("retryGateway")
+
+                    .condition("RETRY_ALLOWED", "${kbsRetryCount < 3}")
+                    .connectTo("Sub_KbsHavuzu")
+
+                    .moveToNode("retryGateway")
+                    .condition("MAX_RETRY_EXCEEDED", "${kbsRetryCount >= 3}")
+                    .serviceTask("kbsHataTask")
+                    .camundaExpression(
+                            "${execution.setVariable('status', 'KBS_HATA')}"
+                    )
+                    .connectTo("finishTask");
 
             /*
              * =====================================================
@@ -133,7 +144,8 @@ public class DynamicWorkflowService {
 
         } catch (Exception e) {
 
-            log.error("HATA", e);
+            log.error("BPMN deploy edilemedi: {}", e.getMessage(), e);
+            throw new IllegalStateException("BPMN deploy başarısız", e);
         }
     }
 }

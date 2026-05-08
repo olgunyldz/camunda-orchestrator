@@ -8,7 +8,7 @@
   targetNamespace="http://bpmn.io/schema/bpmn"
   id="Definitions_1">
 
-  <bpmn:process id="MainPoolProcess" name="Kredi Başvuru Havuz Orkestratörü" isExecutable="true">
+  <bpmn:process id="MainPoolProcess" name="Kredi Başvuru Havuz Orkestratörü" isExecutable="true" camunda:historyTimeToLive="30">
 
     <bpmn:startEvent id="start" name="Başvuru Alındı">
       <bpmn:outgoing>sf_start_orchestrate</bpmn:outgoing>

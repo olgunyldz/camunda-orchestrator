@@ -163,10 +163,6 @@ public class DynamicWorkflowService {
 
       BpmnModelInstance modelInstance = builder.done();
 
-      modelInstance.getModelElementById("gateway").setAttributeValue("default", "BYPASS_FLOW");
-      modelInstance.getModelElementById("lksGateway").setAttributeValue("default", "LKS_BYPASS");
-      modelInstance.getModelElementById("tbhGateway").setAttributeValue("default", "TBH_BYPASS");
-
       repositoryService
           .createDeployment()
           .name("Dynamic Deployment")

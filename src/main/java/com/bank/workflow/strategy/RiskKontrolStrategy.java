@@ -8,17 +8,19 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class RiskKontrolStrategy implements KbsKontrolStrategy {
-    private final RiskService riskService;
+  private final RiskService riskService;
 
-    @Override
-    public String getKontrolAdi() { return "RiskKontrol"; }
+  @Override
+  public String getKontrolAdi() {
+    return "RiskKontrol";
+  }
 
-    @Override
-    public void kontroluYap(DelegateExecution execution) {
-        String tckn = (String) execution.getVariable("tckn");
-        int score = riskService.calculateRiskScore(tckn);
+  @Override
+  public void kontroluYap(DelegateExecution execution) {
+    String tckn = (String) execution.getVariable("tckn");
+    int score = riskService.calculateRiskScore(tckn);
 
-        // Veriyi context'e yazıyoruz. 'kbs_' prefix'i ile havuz bazlı izole ediyoruz.
-        execution.setVariable("kbs_riskScore", score);
-    }
+    // Veriyi context'e yazıyoruz. 'kbs_' prefix'i ile havuz bazlı izole ediyoruz.
+    execution.setVariable("kbs_riskScore", score);
+  }
 }

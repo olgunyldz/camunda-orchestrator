@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 
 @Component("tbhKontrolDelegate")
 public class TbhKontrolDelegate implements JavaDelegate {
-    @Override
-    public void execute(DelegateExecution execution) {
-        System.out.println("--- TBH (Tahsisat) Havuzu Çalıştı ---");
-    }
+  @Override
+  public void execute(DelegateExecution execution) {
+    System.out.println("--- TBH (Tahsisat) Havuzu Çalıştı ---");
+  }
 }

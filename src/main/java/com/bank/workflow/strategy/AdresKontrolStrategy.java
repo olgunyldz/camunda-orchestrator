@@ -9,22 +9,22 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AdresKontrolStrategy implements KbsKontrolStrategy {
 
-    private final AddressService addressService;
+  private final AddressService addressService;
 
-    @Override
-    public String getKontrolAdi() {
-        return "AdresKontrol"; // "AddressKontrol" olan değer PoolRouter ile uyumlu hale getirildi
+  @Override
+  public String getKontrolAdi() {
+    return "AdresKontrol"; // "AddressKontrol" olan değer PoolRouter ile uyumlu hale getirildi
+  }
+
+  @Override
+  public void kontroluYap(DelegateExecution execution) {
+    Integer riskScore = (Integer) execution.getVariable("kbs_riskScore");
+
+    if (riskScore == null) {
+      throw new RuntimeException("Kritik Hata: RiskKontrol verisi bulunamadı!");
     }
 
-    @Override
-    public void kontroluYap(DelegateExecution execution) {
-        Integer riskScore = (Integer) execution.getVariable("kbs_riskScore");
-
-        if (riskScore == null) {
-            throw new RuntimeException("Kritik Hata: RiskKontrol verisi bulunamadı!");
-        }
-
-        Long addrId = (Long) execution.getVariable("addressId");
-        addressService.verifyAddress(addrId, riskScore);
-    }
+    Long addrId = (Long) execution.getVariable("addressId");
+    addressService.verifyAddress(addrId, riskScore);
+  }
 }

@@ -8,14 +8,14 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class TcknKontrolStrategy implements KbsKontrolStrategy {
 
-    @Override
-    public String getKontrolAdi() {
-        return "TcknKontrol";
-    }
+  @Override
+  public String getKontrolAdi() {
+    return "TcknKontrol";
+  }
 
-    @Override
-    public void kontroluYap(DelegateExecution execution) throws Exception {
-        log.info("TCKN Kontrolü yapılıyor...");
-        // API çağrısı ve mantık burada...
-    }
+  @Override
+  public void kontroluYap(DelegateExecution execution) throws Exception {
+    log.info("TCKN Kontrolü yapılıyor...");
+    // API çağrısı ve mantık burada...
+  }
 } // Eksik parantez eklendi

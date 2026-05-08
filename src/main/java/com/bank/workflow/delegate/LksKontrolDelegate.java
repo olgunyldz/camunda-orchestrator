@@ -6,8 +6,8 @@ import org.springframework.stereotype.Component;
 
 @Component("lksKontrolDelegate")
 public class LksKontrolDelegate implements JavaDelegate {
-    @Override
-    public void execute(DelegateExecution execution) {
-        System.out.println("--- LKS (Limit Kontrol Sistemi) Havuzu Çalıştı ---");
-    }
+  @Override
+  public void execute(DelegateExecution execution) {
+    System.out.println("--- LKS (Limit Kontrol Sistemi) Havuzu Çalıştı ---");
+  }
 }

@@ -5,13 +5,16 @@ import com.bank.workflow.entity.BasvuruTarihce;
 import com.bank.workflow.repository.BasvuruRepository;
 import com.bank.workflow.repository.BasvuruTarihceRepository;
 import java.time.LocalDateTime;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Aspect
 @Component
 public class DelegateLoggingAspect {
@@ -28,10 +31,19 @@ public class DelegateLoggingAspect {
       "execution(* org.camunda.bpm.engine.delegate.JavaDelegate.execute(..)) && @within(camundaPoolStep)")
   public Object profileDelegate(ProceedingJoinPoint joinPoint, CamundaPoolStep camundaPoolStep)
       throws Throwable {
-    DelegateExecution execution = (DelegateExecution) joinPoint.getArgs()[0];
-    String basvuruNo = execution.getBusinessKey();
 
-    // Strateji adını al (Örn: TcknKontrol)
+    Object[] args = joinPoint.getArgs();
+    if (args.length == 0 || !(args[0] instanceof DelegateExecution execution)) {
+      return joinPoint.proceed();
+    }
+
+    String basvuruNo = execution.getBusinessKey();
+    if (basvuruNo == null) {
+      log.warn(
+          "Business key bulunamadı, delegate: {}", joinPoint.getSignature().getDeclaringTypeName());
+      return joinPoint.proceed();
+    }
+
     String stepName = (String) execution.getVariable("aktifKontrolAdi");
     String poolAndStep = camundaPoolStep.poolName() + (stepName != null ? " - " + stepName : "");
 
@@ -50,7 +62,7 @@ public class DelegateLoggingAspect {
           be.getMessage());
       throw be;
     } catch (Throwable ex) {
-      updateRetryCount(basvuruNo);
+      incrementRetryCount(basvuruNo);
       logTarihce(
           basvuruNo,
           poolAndStep,
@@ -61,14 +73,9 @@ public class DelegateLoggingAspect {
     }
   }
 
-  private void updateRetryCount(String basvuruNo) {
-    basvuruRepository
-        .findByBasvuruNo(basvuruNo)
-        .ifPresent(
-            b -> {
-              b.setToplamTekrarSayisi(b.getToplamTekrarSayisi() + 1);
-              basvuruRepository.save(b);
-            });
+  @Transactional
+  protected void incrementRetryCount(String basvuruNo) {
+    basvuruRepository.incrementRetryCount(basvuruNo);
   }
 
   private void logTarihce(String bNo, String poolStep, String status, long duration, String error) {

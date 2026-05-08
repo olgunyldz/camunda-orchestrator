@@ -20,7 +20,9 @@ public class PoolRouterDelegate implements JavaDelegate {
 
     if ("VIP".equals(segment)) {
       execution.setVariable("kbsRequired", true);
-      execution.setVariable("calisacakKontroller", List.of("TcknKontrol", "AdresKontrol"));
+      // RiskKontrol, kbs_riskScore'u set eder — AdresKontrol bunu bekler
+      execution.setVariable(
+          "calisacakKontroller", List.of("TcknKontrol", "RiskKontrol", "AdresKontrol"));
 
       execution.setVariable("lksRequired", true);
       execution.setVariable("lksKontrolleri", List.of("LimitSorgu"));

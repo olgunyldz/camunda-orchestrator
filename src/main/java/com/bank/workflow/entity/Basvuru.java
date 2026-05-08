@@ -13,16 +13,18 @@ public class Basvuru {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  private String basvuruNo; // Örn: BSV-2026-001
+  @Column(unique = true, nullable = false)
+  private String basvuruNo;
+
+  @Column(nullable = false)
   private String musteriTipi;
+
+  @Column(nullable = false)
   private Double tutar;
 
-  // Anlık takip için durum kolonları
-  private String anlikHavuz; // Örn: KBS, LKS, TBH
-  private String statu; // Örn: ISLENIYOR, ONAYLANDI, REDDEDILDI
+  private String anlikHavuz;
+  private String statu;
   private LocalDateTime baslangicZamani;
   private LocalDateTime bitisZamani;
-  private Integer toplamTekrarSayisi = 0; // Toplam kaç kez retry yedi?
-
-  // Getter, Setter ve Constructor'lar...
+  private Integer toplamTekrarSayisi = 0;
 }

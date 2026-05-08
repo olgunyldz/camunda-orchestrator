@@ -13,15 +13,21 @@ public class BasvuruTarihce {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Column(nullable = false)
   private String basvuruNo;
-  private String havuzAdi; // KBS, LKS vs.
 
+  @Column(nullable = false)
+  private String havuzAdi;
+
+  @Column(nullable = false)
   private LocalDateTime girisZamani;
+
   private LocalDateTime cikisZamani;
-  private Long gecenSureMs; // Havuzda ne kadar milisaniye harcadı?
+  private Long gecenSureMs;
 
-  private String statu; // BASARILI, HATA_ALDI, RESTART_EDILDI
+  @Column(nullable = false)
+  private String statu;
+
+  @Column(length = 1000)
   private String hataDetayi;
-
-  // Getter, Setter...
 }

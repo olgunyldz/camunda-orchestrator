@@ -33,24 +33,16 @@ public class DynamicWorkflowService {
               .camundaDelegateExpression("${poolRouterDelegate}")
               .exclusiveGateway("gateway");
 
-      /*
-       * =====================================================
-       * KBS FLOW
-       * =====================================================
-       */
+      // =====================================================
+      // KBS FLOW
+      // =====================================================
 
       builder = builder.condition("KBS_FLOW", "${kbsRequired}");
 
-      /*
-       * subprocess builder ayrı tutulmalı
-       */
-      SubProcessBuilder subProcessBuilder = builder.subProcess("Sub_KbsHavuzu").name("KBS Havuzu");
+      SubProcessBuilder kbsSubBuilder = builder.subProcess("Sub_KbsHavuzu").name("KBS Havuzu");
 
-      /*
-       * subprocess iç akışı
-       */
       builder =
-          subProcessBuilder
+          kbsSubBuilder
               .embeddedSubProcess()
               .startEvent()
               .serviceTask("kbsTask")
@@ -63,11 +55,51 @@ public class DynamicWorkflowService {
               .endEvent()
               .subProcessDone();
 
-      /*
-       * =====================================================
-       * MAIN FLOW — finishTask önce tanımlanmalı ki boundary event bağlanabilsin
-       * =====================================================
-       */
+      // =====================================================
+      // LKS FLOW
+      // =====================================================
+
+      builder = builder.exclusiveGateway("lksGateway");
+
+      SubProcessBuilder lksSubBuilder =
+          builder
+              .condition("LKS_FLOW", "${lksRequired}")
+              .subProcess("Sub_LksHavuzu")
+              .name("LKS Havuzu");
+
+      builder =
+          lksSubBuilder
+              .embeddedSubProcess()
+              .startEvent()
+              .serviceTask("lksTask")
+              .camundaDelegateExpression("${lksKontrolDelegate}")
+              .endEvent()
+              .subProcessDone();
+
+      // =====================================================
+      // TBH FLOW
+      // =====================================================
+
+      builder = builder.exclusiveGateway("tbhGateway");
+
+      SubProcessBuilder tbhSubBuilder =
+          builder
+              .condition("TBH_FLOW", "${tbhRequired}")
+              .subProcess("Sub_TbhHavuzu")
+              .name("TBH Havuzu");
+
+      builder =
+          tbhSubBuilder
+              .embeddedSubProcess()
+              .startEvent()
+              .serviceTask("tbhTask")
+              .camundaDelegateExpression("${tbhKontrolDelegate}")
+              .endEvent()
+              .subProcessDone();
+
+      // =====================================================
+      // MAIN FLOW — finishTask tüm boundary event'lerden önce tanımlanmalı
+      // =====================================================
 
       builder =
           builder
@@ -75,19 +107,30 @@ public class DynamicWorkflowService {
               .camundaExpression("${execution.setVariable('status','DONE')}")
               .endEvent("end");
 
-      /*
-       * bypass flow
-       */
+      // KBS bypass: gateway → lksGateway
       builder
           .moveToNode("gateway")
           .condition("BYPASS_FLOW", "${!kbsRequired}")
+          .connectTo("lksGateway");
+
+      // LKS bypass: lksGateway → tbhGateway
+      builder
+          .moveToNode("lksGateway")
+          .condition("LKS_BYPASS", "${!lksRequired}")
+          .connectTo("tbhGateway");
+
+      // TBH bypass: tbhGateway → finishTask
+      builder
+          .moveToNode("tbhGateway")
+          .condition("TBH_BYPASS", "${!tbhRequired}")
           .connectTo("finishTask");
 
-      /*
-       * subprocess boundary event — max 3 deneme, sonra hata akışına geçer
-       * finishTask modele eklendikten sonra bağlanabilir
-       */
-      subProcessBuilder
+      // =====================================================
+      // BOUNDARY EVENTS — finishTask modele eklendikten sonra bağlanabilir
+      // =====================================================
+
+      // KBS: max 3 retry, sonra KBS_HATA
+      kbsSubBuilder
           .boundaryEvent("Evt_KbsHata")
           .error("ERR_KBS_RESTART")
           .serviceTask("retryCountTask")
@@ -102,12 +145,27 @@ public class DynamicWorkflowService {
           .camundaExpression("${execution.setVariable('status', 'KBS_HATA')}")
           .connectTo("finishTask");
 
+      // LKS: hata → LKS_HATA → finishTask
+      lksSubBuilder
+          .boundaryEvent("Evt_LksHata")
+          .error("ERR_LKS_FAIL")
+          .serviceTask("lksHataTask")
+          .camundaExpression("${execution.setVariable('status', 'LKS_HATA')}")
+          .connectTo("finishTask");
+
+      // TBH: hata → TBH_HATA → finishTask
+      tbhSubBuilder
+          .boundaryEvent("Evt_TbhHata")
+          .error("ERR_TBH_FAIL")
+          .serviceTask("tbhHataTask")
+          .camundaExpression("${execution.setVariable('status', 'TBH_HATA')}")
+          .connectTo("finishTask");
+
       BpmnModelInstance modelInstance = builder.done();
 
-      /*
-       * default flow
-       */
       modelInstance.getModelElementById("gateway").setAttributeValue("default", "BYPASS_FLOW");
+      modelInstance.getModelElementById("lksGateway").setAttributeValue("default", "LKS_BYPASS");
+      modelInstance.getModelElementById("tbhGateway").setAttributeValue("default", "TBH_BYPASS");
 
       repositoryService
           .createDeployment()
@@ -118,7 +176,6 @@ public class DynamicWorkflowService {
       log.info("BPMN deploy edildi.");
 
     } catch (Exception e) {
-
       log.error("BPMN deploy edilemedi: {}", e.getMessage(), e);
       throw new IllegalStateException("BPMN deploy başarısız", e);
     }

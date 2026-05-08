@@ -1,6 +1,6 @@
 # Pool Orchestrator
 
-Camunda BPM tabanlı kredi başvuru havuz orkestrasyon servisi. Müşteri segmentine göre başvuruları ilgili kontrol havuzlarına (KBS, LKS, TBH) yönlendirir ve her adımı takip eder.
+Camunda BPM tabanlı kredi başvuru havuz orkestrasyon servisi. Müşteri segmentine göre başvuruları KBS, LKS ve TBH kontrol havuzlarına sırayla yönlendirir; her adımı takip eder.
 
 ## Genel Mimari
 
@@ -12,23 +12,66 @@ BasvuruController ──► DB kaydet ──► Camunda başlat (Business Key: b
                                           │
                                           ▼
                                   PoolRouterDelegate
-                                  (segment'e göre yönlendir)
+                                  (segment + strategy order'a göre yönlendir)
                                           │
-                          ┌───────────────┴───────────────┐
-                          ▼                               ▼
-                   KBS Havuzu                        BYPASS
-                 (Sub-Process)                    (finishTask)
-                  TcknKontrol
-                  RiskKontrol   ◄─── boundary event (max 3 retry)
-                  AdresKontrol
+                    ┌─────────────────────┼──────────────────────┐
+                    ▼                     ▼                      ▼
+             KBS Havuzu             LKS Havuzu             TBH Havuzu
+            (Sub-Process)          (Sub-Process)          (Sub-Process)
+          strategy chain           random %50             random %50
+          TcknKontrol(1)        başarı/başarısız       başarı/başarısız
+          RiskKontrol(2)               │                      │
+          AdresKontrol(3)        ERR_LKS_FAIL           ERR_TBH_FAIL
+                │                      │                      │
+          ERR_KBS_RESTART         LKS_HATA →           TBH_HATA →
+          (max 3 retry)           finishTask             finishTask
 ```
 
-### Havuz Yönlendirme Kuralları
+## Havuz Yönlendirme Kuralları
 
-| Segment | KBS Kontrolleri | LKS |
-|---------|----------------|-----|
-| VIP | TcknKontrol → RiskKontrol → AdresKontrol | Aktif |
-| Diğer | TcknKontrol | Pasif |
+| Segment | KBS Kontrolleri (sıralı) | LKS | TBH |
+|---------|--------------------------|-----|-----|
+| VIP | TcknKontrol(1) → RiskKontrol(2) → AdresKontrol(3) | Aktif | Pasif |
+| Diğer | TcknKontrol(1) | Pasif | Pasif |
+
+## BPMN Akış Diyagramı
+
+```
+start → routeTask → [gateway]
+                        ├── kbsRequired=true  → Sub_KbsHavuzu ──┐
+                        └── kbsRequired=false ───────────────────┘
+                                                                  ▼
+                                                           [lksGateway]
+                                         ├── lksRequired=true  → Sub_LksHavuzu ──┐
+                                         └── lksRequired=false ───────────────────┘
+                                                                                   ▼
+                                                                            [tbhGateway]
+                                                          ├── tbhRequired=true  → Sub_TbhHavuzu ──┐
+                                                          └── tbhRequired=false ───────────────────┘
+                                                                                                    ▼
+                                                                                              finishTask → end
+```
+
+**Hata durumları:**
+
+| Hata | Sonuç |
+|------|-------|
+| KBS hatası (≥3 retry) | `status = KBS_HATA` → finishTask |
+| LKS başarısız | `status = LKS_HATA` → finishTask |
+| TBH başarısız | `status = TBH_HATA` → finishTask |
+| Tümü başarılı | `status = DONE` → finishTask |
+
+## KBS Strategy Sıralaması
+
+KBS havuzu içindeki kontroller `KbsKontrolStrategy.getOrder()` değerine göre otomatik sıralanır. `PoolRouterDelegate` segment kuralına göre hangi strategy'lerin çalışacağını filtreler; sırayı her strategy kendisi tanımlar.
+
+```java
+TcknKontrolStrategy  → order = 1   // TCKN doğrulama
+RiskKontrolStrategy  → order = 2   // Risk skoru hesapla (kbs_riskScore set eder)
+AdresKontrolStrategy → order = 3   // Adres doğrula (kbs_riskScore kullanır)
+```
+
+Yeni bir strategy eklemek için sadece `KbsKontrolStrategy` implemente edip `getOrder()` tanımlamak yeterlidir.
 
 ## Teknolojiler
 
@@ -104,25 +147,20 @@ src/main/java/com/bank/workflow/
 ├── annotation/             # @CamundaPoolStep
 ├── aspect/                 # DelegateLoggingAspect (süre & hata takibi)
 ├── delegate/               # Camunda JavaDelegate'ler
-│   ├── PoolRouterDelegate      # Segment bazlı yönlendirme
-│   ├── KbsDinamikKontrolDelegate  # Strateji pattern ile KBS
-│   ├── LksKontrolDelegate
-│   └── TbhKontrolDelegate
+│   ├── PoolRouterDelegate         # Segment filtresi + strategy sıralaması
+│   ├── KbsDinamikKontrolDelegate  # Strategy pattern ile KBS multi-instance
+│   ├── LksKontrolDelegate         # Random başarı/başarısız
+│   └── TbhKontrolDelegate         # Random başarı/başarısız
 ├── entity/                 # Basvuru, BasvuruTarihce
 ├── listener/               # HavuzDurumGuncellemeListener
 ├── repository/             # JPA repository'ler
 ├── service/                # DynamicWorkflowService, RiskService, AddressService
 └── strategy/               # KbsKontrolStrategy implementasyonları
-    ├── TcknKontrolStrategy
-    ├── RiskKontrolStrategy
-    └── AdresKontrolStrategy
+    ├── KbsKontrolStrategy     (interface: getKontrolAdi, getOrder, kontroluYap)
+    ├── TcknKontrolStrategy    order=1
+    ├── RiskKontrolStrategy    order=2
+    └── AdresKontrolStrategy   order=3
 ```
-
-## BPMN Süreci
-
-Süreç uygulama başlangıcında `DynamicWorkflowService` tarafından programatik olarak oluşturulur ve Camunda'ya deploy edilir. BPMN dosyası yoktur, kod doğrudan model üretir.
-
-**KBS Hata Yönetimi:** Subprocess içinde `ERR_KBS_RESTART` hatası fırlatıldığında boundary event devreye girer. En fazla 3 deneme yapılır; başarısız olursa `status=KBS_HATA` ile süreç sonlanır.
 
 ## Format & Build
 

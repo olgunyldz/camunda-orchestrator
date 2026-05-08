@@ -64,26 +64,8 @@ public class DynamicWorkflowService {
               .subProcessDone();
 
       /*
-       * subprocess boundary event — max 3 deneme, sonra hata akışına geçer
-       */
-      subProcessBuilder
-          .boundaryEvent("Evt_KbsHata")
-          .error("ERR_KBS_RESTART")
-          .serviceTask("retryCountTask")
-          .camundaExpression(
-              "${execution.setVariable('kbsRetryCount', kbsRetryCount == null ? 1 : kbsRetryCount + 1)}")
-          .exclusiveGateway("retryGateway")
-          .condition("RETRY_ALLOWED", "${kbsRetryCount < 3}")
-          .connectTo("Sub_KbsHavuzu")
-          .moveToNode("retryGateway")
-          .condition("MAX_RETRY_EXCEEDED", "${kbsRetryCount >= 3}")
-          .serviceTask("kbsHataTask")
-          .camundaExpression("${execution.setVariable('status', 'KBS_HATA')}")
-          .connectTo("finishTask");
-
-      /*
        * =====================================================
-       * MAIN FLOW
+       * MAIN FLOW — finishTask önce tanımlanmalı ki boundary event bağlanabilsin
        * =====================================================
        */
 
@@ -99,6 +81,25 @@ public class DynamicWorkflowService {
       builder
           .moveToNode("gateway")
           .condition("BYPASS_FLOW", "${!kbsRequired}")
+          .connectTo("finishTask");
+
+      /*
+       * subprocess boundary event — max 3 deneme, sonra hata akışına geçer
+       * finishTask modele eklendikten sonra bağlanabilir
+       */
+      subProcessBuilder
+          .boundaryEvent("Evt_KbsHata")
+          .error("ERR_KBS_RESTART")
+          .serviceTask("retryCountTask")
+          .camundaExpression(
+              "${execution.setVariable('kbsRetryCount', kbsRetryCount == null ? 1 : kbsRetryCount + 1)}")
+          .exclusiveGateway("retryGateway")
+          .condition("RETRY_ALLOWED", "${kbsRetryCount < 3}")
+          .connectTo("Sub_KbsHavuzu")
+          .moveToNode("retryGateway")
+          .condition("MAX_RETRY_EXCEEDED", "${kbsRetryCount >= 3}")
+          .serviceTask("kbsHataTask")
+          .camundaExpression("${execution.setVariable('status', 'KBS_HATA')}")
           .connectTo("finishTask");
 
       BpmnModelInstance modelInstance = builder.done();

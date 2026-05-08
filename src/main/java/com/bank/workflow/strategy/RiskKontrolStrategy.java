@@ -16,6 +16,11 @@ public class RiskKontrolStrategy implements KbsKontrolStrategy {
   }
 
   @Override
+  public int getOrder() {
+    return 2;
+  }
+
+  @Override
   public void kontroluYap(DelegateExecution execution) {
     String tckn = (String) execution.getVariable("tckn");
     int score = riskService.calculateRiskScore(tckn);

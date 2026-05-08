@@ -13,7 +13,12 @@ public class AdresKontrolStrategy implements KbsKontrolStrategy {
 
   @Override
   public String getKontrolAdi() {
-    return "AdresKontrol"; // "AddressKontrol" olan değer PoolRouter ile uyumlu hale getirildi
+    return "AdresKontrol";
+  }
+
+  @Override
+  public int getOrder() {
+    return 3;
   }
 
   @Override

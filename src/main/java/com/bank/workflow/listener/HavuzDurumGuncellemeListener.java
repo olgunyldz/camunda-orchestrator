@@ -28,7 +28,7 @@ public class HavuzDurumGuncellemeListener implements ExecutionListener {
             .orElseThrow(() -> new RuntimeException("Başvuru bulunamadı: " + basvuruNo));
 
     if ("start".equals(eventName)) {
-      basvuru.setAnlikHavuz(havuzAdi);
+      basvuru.setAnlikHavuz(havuzAdi != null ? havuzAdi : "BILINMIYOR");
       basvuru.setStatu("ISLENIYOR");
       if (basvuru.getBaslangicZamani() == null) {
         basvuru.setBaslangicZamani(LocalDateTime.now());

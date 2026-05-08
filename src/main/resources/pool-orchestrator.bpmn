@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  targetNamespace="http://bpmn.io/schema/bpmn"
+  id="Definitions_1">
+
+  <bpmn:process id="MainPoolProcess" name="Kredi Başvuru Havuz Orkestratörü" isExecutable="true">
+
+    <bpmn:startEvent id="start" name="Başvuru Alındı">
+      <bpmn:outgoing>sf_start_orchestrate</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="sf_start_orchestrate" sourceRef="start" targetRef="orchestrateTask"/>
+
+    <bpmn:serviceTask id="orchestrateTask" name="Havuz Orkestrasyon"
+                      camunda:delegateExpression="${poolOrchestratorDelegate}">
+      <bpmn:incoming>sf_start_orchestrate</bpmn:incoming>
+      <bpmn:outgoing>sf_orchestrate_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="sf_orchestrate_end" sourceRef="orchestrateTask" targetRef="end"/>
+
+    <bpmn:endEvent id="end" name="Süreç Tamamlandı">
+      <bpmn:incoming>sf_orchestrate_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+</bpmn:definitions>

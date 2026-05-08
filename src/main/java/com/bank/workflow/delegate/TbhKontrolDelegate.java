@@ -2,7 +2,6 @@ package com.bank.workflow.delegate;
 
 import com.bank.workflow.annotation.CamundaPoolStep;
 import lombok.extern.slf4j.Slf4j;
-import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
@@ -14,6 +13,10 @@ public class TbhKontrolDelegate implements JavaDelegate {
 
   @Override
   public void execute(DelegateExecution execution) {
+    if (!Boolean.TRUE.equals(execution.getVariable("tbhRequired"))) {
+      return;
+    }
+
     String basvuruNo = execution.getBusinessKey();
     log.info("TBH Havuzu çalışıyor. BusinessKey: {}", basvuruNo);
 
@@ -21,7 +24,7 @@ public class TbhKontrolDelegate implements JavaDelegate {
 
     if (!basarili) {
       log.warn("TBH kontrolü başarısız. BusinessKey: {}", basvuruNo);
-      throw new BpmnError("ERR_TBH_FAIL", "TBH tahsisat kontrolü başarısız");
+      throw new RuntimeException("TBH tahsisat kontrolü başarısız");
     }
 
     execution.setVariable("tbhOnaylandi", true);

@@ -2,7 +2,6 @@ package com.bank.workflow.delegate;
 
 import com.bank.workflow.annotation.CamundaPoolStep;
 import lombok.extern.slf4j.Slf4j;
-import org.camunda.bpm.engine.delegate.BpmnError;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.springframework.stereotype.Component;
@@ -14,6 +13,10 @@ public class LksKontrolDelegate implements JavaDelegate {
 
   @Override
   public void execute(DelegateExecution execution) {
+    if (!Boolean.TRUE.equals(execution.getVariable("lksRequired"))) {
+      return;
+    }
+
     String basvuruNo = execution.getBusinessKey();
     log.info("LKS Havuzu çalışıyor. BusinessKey: {}", basvuruNo);
 
@@ -21,7 +24,7 @@ public class LksKontrolDelegate implements JavaDelegate {
 
     if (!basarili) {
       log.warn("LKS kontrolü başarısız. BusinessKey: {}", basvuruNo);
-      throw new BpmnError("ERR_LKS_FAIL", "LKS limit kontrolü başarısız");
+      throw new RuntimeException("LKS limit kontrolü başarısız");
     }
 
     execution.setVariable("lksOnaylandi", true);

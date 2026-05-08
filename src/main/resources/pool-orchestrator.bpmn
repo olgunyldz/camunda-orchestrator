@@ -8,24 +8,71 @@
   targetNamespace="http://bpmn.io/schema/bpmn"
   id="Definitions_1">
 
-  <bpmn:process id="MainPoolProcess" name="Kredi Başvuru Havuz Orkestratörü" isExecutable="true" camunda:historyTimeToLive="30">
+  <!--
+    Her pool task'ı asyncBefore=true ile kuyruğa alınır.
+    Exception fırlatıldığında Camunda failedJobRetryTimeCycle'a göre otomatik retry yapar.
+    Tüm denemeler tükenince Cockpit'te Incident oluşur.
+    Her delegate kendi "Required" değişkenini kontrol eder; gerekli değilse direkt döner.
+  -->
+  <bpmn:process id="MainPoolProcess" name="Kredi Başvuru Havuz Orkestratörü"
+                isExecutable="true" camunda:historyTimeToLive="30">
 
     <bpmn:startEvent id="start" name="Başvuru Alındı">
-      <bpmn:outgoing>sf_start_orchestrate</bpmn:outgoing>
+      <bpmn:outgoing>sf1</bpmn:outgoing>
     </bpmn:startEvent>
 
-    <bpmn:sequenceFlow id="sf_start_orchestrate" sourceRef="start" targetRef="orchestrateTask"/>
+    <bpmn:sequenceFlow id="sf1" sourceRef="start" targetRef="routeTask"/>
 
-    <bpmn:serviceTask id="orchestrateTask" name="Havuz Orkestrasyon"
-                      camunda:delegateExpression="${poolOrchestratorDelegate}">
-      <bpmn:incoming>sf_start_orchestrate</bpmn:incoming>
-      <bpmn:outgoing>sf_orchestrate_end</bpmn:outgoing>
+    <!-- Senkron: segment bazlı değişkenleri set eder -->
+    <bpmn:serviceTask id="routeTask" name="Yönlendirme"
+                      camunda:delegateExpression="${poolRouterDelegate}">
+      <bpmn:incoming>sf1</bpmn:incoming>
+      <bpmn:outgoing>sf2</bpmn:outgoing>
     </bpmn:serviceTask>
 
-    <bpmn:sequenceFlow id="sf_orchestrate_end" sourceRef="orchestrateTask" targetRef="end"/>
+    <bpmn:sequenceFlow id="sf2" sourceRef="routeTask" targetRef="kbsTask"/>
+
+    <!-- Async: exception → Camunda retry (R3/PT10S = 3 deneme, 10sn arayla) -->
+    <bpmn:serviceTask id="kbsTask" name="KBS Havuzu"
+                      camunda:asyncBefore="true"
+                      camunda:failedJobRetryTimeCycle="R3/PT10S"
+                      camunda:delegateExpression="${kbsPoolDelegate}">
+      <bpmn:incoming>sf2</bpmn:incoming>
+      <bpmn:outgoing>sf3</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="sf3" sourceRef="kbsTask" targetRef="lksTask"/>
+
+    <bpmn:serviceTask id="lksTask" name="LKS Havuzu"
+                      camunda:asyncBefore="true"
+                      camunda:failedJobRetryTimeCycle="R3/PT10S"
+                      camunda:delegateExpression="${lksKontrolDelegate}">
+      <bpmn:incoming>sf3</bpmn:incoming>
+      <bpmn:outgoing>sf4</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="sf4" sourceRef="lksTask" targetRef="tbhTask"/>
+
+    <bpmn:serviceTask id="tbhTask" name="TBH Havuzu"
+                      camunda:asyncBefore="true"
+                      camunda:failedJobRetryTimeCycle="R3/PT10S"
+                      camunda:delegateExpression="${tbhKontrolDelegate}">
+      <bpmn:incoming>sf4</bpmn:incoming>
+      <bpmn:outgoing>sf5</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="sf5" sourceRef="tbhTask" targetRef="finishTask"/>
+
+    <bpmn:serviceTask id="finishTask" name="Tamamla"
+                      camunda:expression="${execution.setVariable('status','DONE')}">
+      <bpmn:incoming>sf5</bpmn:incoming>
+      <bpmn:outgoing>sf6</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="sf6" sourceRef="finishTask" targetRef="end"/>
 
     <bpmn:endEvent id="end" name="Süreç Tamamlandı">
-      <bpmn:incoming>sf_orchestrate_end</bpmn:incoming>
+      <bpmn:incoming>sf6</bpmn:incoming>
     </bpmn:endEvent>
 
   </bpmn:process>

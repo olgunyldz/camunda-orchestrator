@@ -130,6 +130,84 @@ Başvuru oluşturuldu. No: BSV-3F2A1B4C
 - `tutar` — pozitif sayı olmalı
 - `addressId` — zorunlu
 
+## Test — curl Komutları
+
+### Standart müşteri (KBS)
+```bash
+curl -s -X POST http://localhost:8080/api/basvuru/olustur \
+  -H "Content-Type: application/json" \
+  -d '{
+    "musteriTipi": "BIREYSEL",
+    "tutar": 25000.0,
+    "segment": "STANDART",
+    "tckn": "12345678901",
+    "addressId": 1
+  }'
+```
+
+### VIP müşteri (KBS + LKS, random başarı/başarısız)
+```bash
+curl -s -X POST http://localhost:8080/api/basvuru/olustur \
+  -H "Content-Type: application/json" \
+  -d '{
+    "musteriTipi": "BIREYSEL",
+    "tutar": 150000.0,
+    "segment": "VIP",
+    "tckn": "98765432100",
+    "addressId": 42
+  }'
+```
+
+### Validasyon — tutar negatif (hata beklenir)
+```bash
+curl -s -X POST http://localhost:8080/api/basvuru/olustur \
+  -H "Content-Type: application/json" \
+  -d '{
+    "musteriTipi": "BIREYSEL",
+    "tutar": -500.0,
+    "segment": "STANDART",
+    "tckn": "12345678901",
+    "addressId": 1
+  }'
+```
+
+### Validasyon — zorunlu alan eksik (hata beklenir)
+```bash
+curl -s -X POST http://localhost:8080/api/basvuru/olustur \
+  -H "Content-Type: application/json" \
+  -d '{
+    "musteriTipi": "BIREYSEL",
+    "tutar": 10000.0,
+    "segment": "STANDART",
+    "addressId": 1
+  }'
+```
+
+### Döngüde 10 başvuru (KBS retry ve LKS rastgeleliğini gözlemlemek için)
+```bash
+for i in $(seq 1 10); do
+  echo "--- Başvuru $i ---"
+  curl -s -X POST http://localhost:8080/api/basvuru/olustur \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"musteriTipi\": \"BIREYSEL\",
+      \"tutar\": $((RANDOM % 100000 + 1000)).0,
+      \"segment\": \"VIP\",
+      \"tckn\": \"1234567890$i\",
+      \"addressId\": $i
+    }"
+  echo ""
+done
+```
+
+### Camunda Cockpit — süreç geçmişi
+```
+http://localhost:8080/camunda
+Kullanıcı : admin
+Şifre     : admin
+```
+Cockpit → Processes → MainPoolProcess → History
+
 ## Ortam Değişkenleri
 
 | Değişken | Varsayılan | Açıklama |
